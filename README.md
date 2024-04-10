@@ -49,7 +49,7 @@ curl 'http://localhost:3005/api/tables/user?columns=id,name&sort=id,-name&filter
 This will generate the equivalent SQL query:
 
 ```sql
-SELECT id, username FROM user WHERE id > 1 ORDER BY id, name DESC
+SELECT id, name FROM user WHERE id > 1 ORDER BY id, name DESC
 ```
 
 ## Contributing
