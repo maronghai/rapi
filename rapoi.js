@@ -112,7 +112,7 @@ app.use('/api/tables/:table', (req, res) => {
             return;
         }
 
-        result(res, { kind: "not_found" }, null);
+        result(res, { message: "not_found" }, null);
     })
 })
 
