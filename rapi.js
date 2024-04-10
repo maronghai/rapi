@@ -3,7 +3,7 @@ const express = require("express");
 const cors = require("cors");
 const mysql = require("mysql2");
 
-var connection = mysql.createPool({
+const connection = mysql.createPool({
   host: process.env.DB_HOST,
   port: process.env.DB_PORT,
   user: process.env.DB_USER,
