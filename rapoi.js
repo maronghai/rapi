@@ -1,12 +1,12 @@
 /**
- * curl 'localhost:3005/api/tables/user?columns=id,name&sort=id,-name&filter[id][gt]=1'
+ * curl 'localhost:3005/api/tables/sys_user?columns=id,username&sort=id,-username&filter[id][gt]=1'
  * SELECT id, name FROM user WHERE id > 1 AND name = 3 AND avatar is null ORDER BY id, name DESC LIMIT 2000;
  * 
- * columns, sort, limit, filter, page
+ * columns, sort, limit, filter, pno, psize
  */
 const express = require("express");
 const cors = require("cors");
-const mysql = require("mysql2"); // mysql, mysql2
+const mysql = require("mysql2");
 
 var connection = mysql.createPool({
     host: process.env.DB_HOST || '127.0.0.1',
@@ -48,14 +48,12 @@ app.use('/api/tables/:table', (req, res) => {
 
     // columns
     const columns = (req.query.columns || req.body.columns || '*').split(',').join(', ')
-    console.log("columns: ", columns)
     if (columns) {
         sql += ` ${columns}`
     }
 
     // table
     const table = req.params.table
-    console.log("table: ", table)
     if (table) {
         sql += ` FROM ${table}`
     } else {
@@ -65,7 +63,6 @@ app.use('/api/tables/:table', (req, res) => {
 
     // filter
     const filter = req.query.filter || req.body.filter
-    console.log("filter: ", filter)
     if (filter) {
         console.log(Object.entries(filter))
         const conditionSql = Object.entries(filter)
@@ -81,7 +78,6 @@ app.use('/api/tables/:table', (req, res) => {
 
     // sort
     const sort = req.query.sort || req.body.sort
-    console.log("order: ", sort)
     if (sort) {
         const sortList = sort.split(',').map(item => {
             const col = item.trim()
@@ -92,14 +88,11 @@ app.use('/api/tables/:table', (req, res) => {
 
     // limit
     const pno = req.query.pno || req.body.pno
-    console.log("pno: ", pno)
     if (pno) {
         const psize = req.query.psize || req.body.psize || 10
-        console.log("psize: ", psize)
         sql += ` LIMIT ${(pno - 1) * psize}, ${psize}`
     } else {
         const limit = req.query.limit || req.body.limit || 2000
-        console.log("limit: ", limit)
         sql += ` LIMIT ${limit}`
     }
 
@@ -110,13 +103,11 @@ app.use('/api/tables/:table', (req, res) => {
     connection.query(sql, (err, results, fields) => {
         console.log('QUERY: ', err, results, fields)
         if (err) {
-            console.log("error: ", err);
             result(res, err, null);
             return;
         }
 
         if (results.length) {
-            console.log("found tutorial: ", results);
             result(res, null, results);
             return;
         }
