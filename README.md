@@ -40,7 +40,7 @@ The API provides a single endpoint `/api/tables/:table` where `:table` is the na
 
 ### Example Request
 
-To query the `sys_user` table for users with an `id` greater than 1, sorting by `id` ascending and `name` descending, you can make the following request:
+To query the `user` table for users with an `id` greater than 1, sorting by `id` ascending and `name` descending, you can make the following request:
 
 ```
 curl 'http://localhost:3005/api/tables/user?columns=id,name&sort=id,-name&filter[id][gt]=1'
