@@ -3,7 +3,7 @@ const express = require("express");
 const cors = require("cors");
 const mysql = require("mysql2");
 
-const connection = mysql.createPool({
+var connection = mysql.createPool({
   host: process.env.DB_HOST,
   port: process.env.DB_PORT,
   user: process.env.DB_USER,
@@ -37,6 +37,20 @@ const result = (res, err, data) => {
     res.send(data);
   }
 }
+
+app.get('/api/tables/:table/:id', (req, res) => {
+  const table = req.params.table
+  const id = req.params.id
+  result(res, null, { table, id })
+})
+
+app.post('/api/tables/:table/:id', (req, res) => {
+  const table = req.params.table
+  const id = req.params.id
+  let sql = 'UPDATE SET '
+  
+  result(res, null, { table, id })
+})
 
 app.use('/api/tables/:table', (req, res) => {
   let sql = "SELECT"
@@ -110,6 +124,8 @@ app.use('/api/tables/:table', (req, res) => {
     result(res, { message: "not_found" }, null);
   })
 })
+
+
 
 // ---
 
