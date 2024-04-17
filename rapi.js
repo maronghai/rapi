@@ -1,15 +1,21 @@
 require('dotenv').config()
 const express = require("express");
 const cors = require("cors");
-const mysql = require("mysql2");
+const mysql = require('mysql2');
+// const mysql = require('mysql2/promise');
 
-var connection = mysql.createPool({
+const dbconf = {
   host: process.env.DB_HOST,
   port: process.env.DB_PORT,
   user: process.env.DB_USER,
   password: process.env.DB_PIN,
   database: process.env.DB_SCHEME,
-});
+  dateStrings: true,
+  queueLimit: 1000,
+}
+console.log("DB:", dbconf)
+
+const pool = mysql.createPool(dbconf);
 
 const host = process.env.HOST
 const port = process.env.PORT
@@ -29,7 +35,8 @@ const OP_CONFIG = {
   'le': '<=',
 }
 
-// ---
+// ---------
+
 const result = (res, err, data) => {
   if (err) {
     res.status(500).send({ message: err.message || "系统异常" });
@@ -38,17 +45,25 @@ const result = (res, err, data) => {
   }
 }
 
+const afterQuery = (res, err, data, other = []) => err ? result(res, err, null) : result(res, null, data || other);
+
+// ---------
+
 app.get('/api/tables/:table/:id', (req, res) => {
   const table = req.params.table
   const id = req.params.id
-  result(res, null, { table, id })
+  const sql = `SELECT * FROM ${table} WHERE id = ${id}`
+
+  pool.query(sql, (err, results, fields) => afterQuery(res, err, results[0] || {
+    fields: fields.map(({ name, type, typeName }) => ({ name, type, typeName }))
+  }))
 })
 
 app.post('/api/tables/:table/:id', (req, res) => {
   const table = req.params.table
   const id = req.params.id
   let sql = 'UPDATE SET '
-  
+
   result(res, null, { table, id })
 })
 
@@ -109,20 +124,7 @@ app.use('/api/tables/:table', (req, res) => {
   console.log('SQL: ', sql)
 
   // query
-  connection.query(sql, (err, results, fields) => {
-    console.log('QUERY: ', err, results, fields)
-    if (err) {
-      result(res, err, null);
-      return;
-    }
-
-    if (results.length) {
-      result(res, null, results);
-      return;
-    }
-
-    result(res, { message: "not_found" }, null);
-  })
+  pool.query({ sql, rowsAsArray: true }, (err, results, fields) => afterQuery(res, err, results))
 })
 
 
