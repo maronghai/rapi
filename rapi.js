@@ -33,6 +33,27 @@ const OP_CONFIG = {
   'ge': '>=',
   'lt': '<',
   'le': '<=',
+
+  'eqs': '=',
+  'gts': '>',
+  'ges': '>=',
+  'lts': '<',
+  'les': '<=',
+
+  ins: 'in'
+}
+
+
+const __value = (op, value) => {
+  if (['eqs', 'gts', 'ges', 'lts', 'les'].includes(op)) {
+    return `'${value}'`
+  } else if ('in' == op) {
+    return `(${value})`
+  } else if ('ins' == op) {
+    return `(${value.split(',').map(item => __value('eqs', item)).join(',')})`
+  }
+
+  return value
 }
 
 // ---------
@@ -91,9 +112,9 @@ app.use('/api/tables/:table', (req, res) => {
     console.log(Object.entries(filter))
     const conditionSql = Object.entries(filter)
       .map(([field, condition]) => {
-        const conditionKey = Object.keys(condition)
+        const conditionKey = Object.keys(condition)?.[0]
         const op = OP_CONFIG[conditionKey] || conditionKey || ''
-        const value = condition[conditionKey]
+        const value = __value(conditionKey, condition[conditionKey])
         return field + ' ' + op + ' ' + value
       })
       .join(' AND ')
