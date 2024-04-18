@@ -2,7 +2,6 @@ require('dotenv').config()
 const express = require("express");
 const cors = require("cors");
 const mysql = require('mysql2');
-// const mysql = require('mysql2/promise');
 
 const dbconf = {
   host: process.env.DB_HOST,
@@ -11,7 +10,7 @@ const dbconf = {
   password: process.env.DB_PIN,
   database: process.env.DB_SCHEME,
   dateStrings: true,
-  queueLimit: 1000,
+  // queueLimit: 1000,
 }
 console.log("DB:", dbconf)
 
@@ -28,29 +27,32 @@ app.use(express.urlencoded({ extended: true }));
 
 // ---
 const OP_CONFIG = {
-  'eq': '=',
-  'gt': '>',
-  'ge': '>=',
-  'lt': '<',
-  'le': '<=',
+  eq: '=',
+  gt: '>',
+  ge: '>=',
+  lt: '<',
+  le: '<=',
 
-  'eqs': '=',
-  'gts': '>',
-  'ges': '>=',
-  'lts': '<',
-  'les': '<=',
+  in: 0,
+  like: 0,
+}
+const OP_UKEYS = Object.keys(OP_CONFIG).map(key => key.toUpperCase())
 
-  ins: 'in'
+const __op = key => {
+  const lowkey = key?.toLowerCase() || ''
+  return OP_CONFIG[lowkey] || lowkey
 }
 
 
-const __value = (op, value) => {
-  if (['eqs', 'gts', 'ges', 'lts', 'les'].includes(op)) {
+const __value = (key, value) => {
+  console.log('__value', key, value)
+
+  if ('IN' == key) {
+    return `(${value.split(',').map(item => `'${item}'`).join(',')})`
+  } else if (OP_UKEYS.includes(key)) {
     return `'${value}'`
-  } else if ('in' == op) {
+  } else if ('in' == key) {
     return `(${value})`
-  } else if ('ins' == op) {
-    return `(${value.split(',').map(item => __value('eqs', item)).join(',')})`
   }
 
   return value
@@ -113,7 +115,7 @@ app.use('/api/tables/:table', (req, res) => {
     const conditionSql = Object.entries(filter)
       .map(([field, condition]) => {
         const conditionKey = Object.keys(condition)?.[0]
-        const op = OP_CONFIG[conditionKey] || conditionKey || ''
+        const op = __op(conditionKey)
         const value = __value(conditionKey, condition[conditionKey])
         return field + ' ' + op + ' ' + value
       })
