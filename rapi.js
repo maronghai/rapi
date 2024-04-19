@@ -155,9 +155,8 @@ app.post('/api/q/:table', async (req, res) => {
     ...Object.entries(req.query)
       .filter(([key]) => key.startsWith('f_'))
       .map(([key, value]) => key.substring(2) + ' = ' + value),
-    ...Object.entries(req.body)
-      .filter(([key]) => key.startsWith('f_'))
-      .map(([key, value]) => key.substring(2) + ' = ' + value),
+    ...Object.entries(req.body.f_)
+      .map(([key, value]) => key + ' = ' + value),
   ]
 
   if (conditionList.length > 0) {
