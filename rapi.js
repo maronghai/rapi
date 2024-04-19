@@ -69,22 +69,49 @@ const result = (res, raw, data) => {
 // ---------
 
 // replace
-app.post('/api/r/:table', (req, res) => {
-  const table = req.params.table
+const UID_TABLE = {
+  t_user: 'id',
+  t_child: 'user_id',
+  t_device: 'user_id',
+  t_hrv_event: 'user_id',
+  t_hrv_event_reolve: 'user_id',
+  t_notice: 'user_id',
+  t_qa: 'user_id',
+  t_report_per_day: 'user_id',
+}
+app.post('/api/r/:table', async (req, res) => {
+  const table = 't_' + req.params.table
   const id = req.body.id
   console.log("body:", req.body)
   let sql = ''
-  if (id) {
-    const columns = Object.entries(req.body).map(([key, value]) => `${key} = ${value}`).join(', ')
-    sql = `UPDATE t_${table} SET ${columns}, version = version + 1 WHERE id=${id} AND version=${req.body.version}`
-  } else {
+  if (id) { // update
+    // version
+    const version = req.body.version || 0
+    let condition = `id = ${id} AND version = ${version}`
+
+    // uid
+    const uidField = UID_TABLE[table]
+    if (uidField) {
+      const uid = req.get('uid') || 0
+      condition += ` AND ${uidField} = ${uid}`
+    }
+
+    // columns
+    const columns = Object.entries(req.body)
+      .filter(([key]) => key != 'id')
+      .map(([key, value]) => `${key} = ${value}`)
+      .join(', ')
+    sql = `UPDATE ${table} SET ${columns}, version = version + 1 WHERE ${condition}`
+  } else { // insert
     const columns = Object.keys(req.body)
     const values = Object.values(req.body)
-    sql = `INSERT INTO t_${table} (${columns}) VALUES (${values})`
+    sql = `INSERT INTO ${table} (${columns}) VALUES (${values})`
   }
   console.log(sql)
 
-  result(res, {}, { table, id })
+  const data = await pool.execute(sql).catch(e => e)
+
+  result(res, data, { ok: data[0].affectedRows })
 })
 
 // query
