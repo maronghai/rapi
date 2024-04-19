@@ -1,7 +1,7 @@
 require('dotenv').config()
 const express = require("express");
 const cors = require("cors");
-const mysql = require('mysql2');
+const mysql = require('mysql2/promise');
 
 const dbconf = {
   host: process.env.DB_HOST,
@@ -13,13 +13,11 @@ const dbconf = {
   // queueLimit: 1000,
 }
 console.log("DB:", dbconf)
-
 const pool = mysql.createPool(dbconf);
 
-const host = process.env.HOST
-const port = process.env.PORT
+// ---------         ---------
 
-// ---
+
 const app = express()
 app.use(cors({ origin: "*" }));
 app.use(express.json());
@@ -60,37 +58,37 @@ const __value = (key, value) => {
 
 // ---------
 
-const result = (res, err, data) => {
-  if (err) {
-    res.status(500).send({ message: err.message || "系统异常" });
+const result = (res, raw, data) => {
+  if (raw.message) {
+    res.status(500).send({ message: raw.message || "系统异常" });
   } else {
-    res.send(data);
+    res.send({ data });
   }
 }
 
-const afterQuery = (res, err, data, other = []) => err ? result(res, err, null) : result(res, null, data || other);
-
 // ---------
 
-app.get('/api/tables/:table/:id', (req, res) => {
+// replace
+app.post('/api/r/:table/:id', (req, res) => {
   const table = req.params.table
   const id = req.params.id
-  const sql = `SELECT * FROM ${table} WHERE id = ${id}`
-
-  pool.query(sql, (err, results, fields) => afterQuery(res, err, results[0] || {
-    fields: fields.map(({ name, type, typeName }) => ({ name, type, typeName }))
-  }))
-})
-
-app.post('/api/tables/:table/:id', (req, res) => {
-  const table = req.params.table
-  const id = req.params.id
-  let sql = 'UPDATE SET '
+  let sql = ''
+  if (id) {
+    const columns = Object.entries(req.data).map(([key, value]) => `${key} = ${value}`).join(', ')
+    sql = `UPDATE t_${table} SET ${columns}, version = version + 1 WHERE id=${id} AND version=${data.version}`
+  } else {
+    const columns = Object.keys(req.body)
+    const values = Object.values(req.body)
+    sql = `INSERT INTO t_${table} (${columns}) VALUES (${values})`
+  }
+  console.log(sql)
 
   result(res, null, { table, id })
 })
 
-app.use('/api/tables/:table', (req, res) => {
+// query
+app.post('/api/q/:table', async (req, res) => {
+  // console.log(req)
   let sql = "SELECT"
 
   // columns
@@ -102,25 +100,40 @@ app.use('/api/tables/:table', (req, res) => {
   // table
   const table = req.params.table
   if (table) {
-    sql += ` FROM ${table}`
+    sql += ` FROM t_${table}`
   } else {
     result(res, { message: "table_not_found" }, null);
     return
   }
 
+  // WHERE
+  let conditionList = []
+
   // filter
   const filter = req.query.filter || req.body.filter
   if (filter) {
-    console.log(Object.entries(filter))
-    const conditionSql = Object.entries(filter)
+    conditionList = Object.entries(filter)
       .map(([field, condition]) => {
         const conditionKey = Object.keys(condition)?.[0]
         const op = __op(conditionKey)
         const value = __value(conditionKey, condition[conditionKey])
         return field + ' ' + op + ' ' + value
       })
-      .join(' AND ')
-    sql += ` WHERE ${conditionSql}`
+  }
+
+  // f_
+  conditionList = [
+    ...conditionList,
+    ...Object.entries(req.query)
+      .filter(([key]) => key.startsWith('f_'))
+      .map(([key, value]) => key.substring(2) + ' = ' + value),
+    ...Object.entries(req.body)
+      .filter(([key]) => key.startsWith('f_'))
+      .map(([key, value]) => key.substring(2) + ' = ' + value),
+  ]
+
+  if (conditionList.length > 0) {
+    sql += ` WHERE ${conditionList.join(' AND ')}`
   }
 
   // sort
@@ -139,21 +152,42 @@ app.use('/api/tables/:table', (req, res) => {
     const psize = req.query.psize || req.body.psize || 10
     sql += ` LIMIT ${(pno - 1) * psize}, ${psize}`
   } else {
-    const limit = req.query.limit || req.body.limit || 2000
+    const limit = req.query.limit || req.body.limit || 0
     sql += ` LIMIT ${limit}`
   }
 
   // end of sql
   console.log('SQL: ', sql)
 
+  // auth
+  if (conditionList.length == 0 && req.get('auth') != 'JJB$2024#0402@0408!') {
+    result(res, { message: '高山流水' })
+    return
+  }
+
   // query
-  pool.query({ sql, rowsAsArray: true }, (err, results, fields) => afterQuery(res, err, results))
+  const data = await pool.query(sql).catch(e => e)
+
+  // [object]
+  if (req.query.o || req.body.o) {
+    result(res, data, data[0]?.[0] || {})
+    return
+  }
+
+  // [list]
+  result(res, data, data[0])
 })
-
-
 
 // ---
 
+app.post('/api/biz/login', (req, res) => {
+  mysql.query('select * from t_user where mobile = ? and pin = ?')
+})
+
+
+// ---
+const host = process.env.HOST
+const port = process.env.PORT
 app.listen(port, () => {
   console.log(`Server is runniing. ${host}:${port}`)
 })
