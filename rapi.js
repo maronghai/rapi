@@ -69,13 +69,14 @@ const result = (res, raw, data) => {
 // ---------
 
 // replace
-app.post('/api/r/:table/:id', (req, res) => {
+app.post('/api/r/:table', (req, res) => {
   const table = req.params.table
-  const id = req.params.id
+  const id = req.body.id
+  console.log("body:", req.body)
   let sql = ''
   if (id) {
-    const columns = Object.entries(req.data).map(([key, value]) => `${key} = ${value}`).join(', ')
-    sql = `UPDATE t_${table} SET ${columns}, version = version + 1 WHERE id=${id} AND version=${data.version}`
+    const columns = Object.entries(req.body).map(([key, value]) => `${key} = ${value}`).join(', ')
+    sql = `UPDATE t_${table} SET ${columns}, version = version + 1 WHERE id=${id} AND version=${req.body.version}`
   } else {
     const columns = Object.keys(req.body)
     const values = Object.values(req.body)
@@ -83,7 +84,7 @@ app.post('/api/r/:table/:id', (req, res) => {
   }
   console.log(sql)
 
-  result(res, null, { table, id })
+  result(res, {}, { table, id })
 })
 
 // query
